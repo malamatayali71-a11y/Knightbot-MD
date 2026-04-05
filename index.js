@@ -1,10 +1,8 @@
-/**
- * H.A.C. System - To Be Hero X WhatsApp Bot (Stable Minimal Version)
- */
-
 const fs = require('fs');
 const { default: makeWASocket, useMultiFileAuthState } = require("@whiskeysockets/baileys");
 const pino = require("pino");
+
+console.log("✅ Starting H.A.C. System...");
 
 const DATA_FILE = './data/heroes.json';
 let heroes = {};
@@ -47,7 +45,6 @@ async function startBot() {
 
   sock.ev.on('creds.update', saveCreds);
 
-  // H.A.C. System Commands
   sock.ev.on('messages.upsert', async (chatUpdate) => {
     const msg = chatUpdate.messages[0];
     if (!msg.message) return;
@@ -70,7 +67,7 @@ async function startBot() {
       let reply = '';
 
       if (cmd === 'help') {
-        reply = `🔵 *H.A.C. SYSTEM ONLINE*\n\nCommands:\n!register\n!profile @user\n!trust @user +50\n!chooseability @user "power with limiters"\n!battle @user1 @user2\n!raid\n!top10\n!challenge @user`;
+        reply = `🔵 *H.A.C. SYSTEM ONLINE*\n\n!register\n!profile @user\n!trust @user +50\n!chooseability @user "power with limiters"\n!battle @user1 @user2\n!raid`;
       } else if (cmd === 'register') {
         heroes[sender].route = 'Aspiring Hero';
         reply = `🟢 *New Hero Registered*\nTrust: 0\nUse !chooseability "your power with limiters"`;
