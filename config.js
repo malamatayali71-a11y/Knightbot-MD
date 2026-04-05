@@ -10,7 +10,7 @@ global.hacPrefix = "!";        // H.A.C. System commands
 
 global.sessionName = "session";
 global.ownername = "GM";
-global.ownerNumber = "260XXXXXXXXX";
+global.ownerNumber = "260773158979";
 
 module.exports = {
   owner,
