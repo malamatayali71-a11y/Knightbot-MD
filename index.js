@@ -73,7 +73,7 @@ setInterval(() => {
 let phoneNumber = "911234567890"
 let owner = JSON.parse(fs.readFileSync('./data/owner.json'))
 
-global.botname = "KNIGHT BOT"
+global.botname = "H.A.C. System"
 global.themeemoji = "•"
 const pairingCode = !!phoneNumber || process.argv.includes("--pairing-code")
 const useMobile = process.argv.includes("--mobile")
@@ -84,7 +84,6 @@ const question = (text) => {
     if (rl) {
         return new Promise((resolve) => rl.question(text, resolve))
     } else {
-        // In non-interactive environment, use ownerNumber from settings
         return Promise.resolve(settings.ownerNumber || phoneNumber)
     }
 }
@@ -134,16 +133,12 @@ async function startXeonBotInc() {
                 await handleStatus(XeonBotInc, chatUpdate);
                 return;
             }
-            // In private mode, only block non-group messages (allow groups for moderation)
-            // Note: XeonBotInc.public is not synced, so we check mode in main.js instead
-            // This check is kept for backward compatibility but mainly blocks DMs
             if (!XeonBotInc.public && !mek.key.fromMe && chatUpdate.type === 'notify') {
                 const isGroup = mek.key?.remoteJid?.endsWith('@g.us')
-                if (!isGroup) return // Block DMs in private mode, but allow group messages
+                if (!isGroup) return
             }
             if (mek.key.id.startsWith('BAE5') && mek.key.id.length === 16) return
 
-            // Clear message retry cache to prevent memory bloat
             if (XeonBotInc?.msgRetryCounterCache) {
                 XeonBotInc.msgRetryCounterCache.clear()
             }
@@ -152,19 +147,9 @@ async function startXeonBotInc() {
                 await handleMessages(XeonBotInc, chatUpdate, true)
             } catch (err) {
                 console.error("Error in handleMessages:", err)
-                // Only try to send error message if we have a valid chatId
                 if (mek.key && mek.key.remoteJid) {
                     await XeonBotInc.sendMessage(mek.key.remoteJid, {
                         text: '❌ An error occurred while processing your message.',
-                        contextInfo: {
-                            forwardingScore: 1,
-                            isForwarded: true,
-                            forwardedNewsletterMessageInfo: {
-                                newsletterJid: '120363161513685998@newsletter',
-                                newsletterName: 'KnightBot MD',
-                                serverMessageId: -1
-                            }
-                        }
                     }).catch(console.error);
                 }
             }
@@ -173,7 +158,97 @@ async function startXeonBotInc() {
         }
     })
 
-    // Add these event handlers for better functionality
+    // === H.A.C. SYSTEM (To Be Hero X) - Added here ===
+    const DATA_FILE = './data/heroes.json';
+    let heroes = {};
+    let activeBattles = {};
+
+    if (fs.existsSync(DATA_FILE)) {
+      heroes = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    }
+
+    const RANK_THRESHOLDS = [
+      { min: 0, rank: 'Civilian (Abilities Locked)' },
+      { min: 10, rank: 'Aspiring Hero (Weak Ability)' },
+      { min: 50, rank: 'Trusted Ally' },
+      { min: 200, rank: 'Rising Hero' },
+      { min: 500, rank: 'Elite Hero' },
+      { min: 1000, rank: 'Top Contender' },
+      { min: 5000, rank: 'HERO X' }
+    ];
+
+    function getRank(trust) {
+      for (let i = RANK_THRESHOLDS.length - 1; i >= 0; i--) {
+        if (trust >= RANK_THRESHOLDS[i].min) return RANK_THRESHOLDS[i].rank;
+      }
+      return RANK_THRESHOLDS[0].rank;
+    }
+
+    function saveHeroes() {
+      fs.writeFileSync(DATA_FILE, JSON.stringify(heroes, null, 2));
+    }
+
+    // H.A.C. Command & RP Handler
+    XeonBotInc.ev.on('messages.upsert', async (m) => {
+      const msg = m.messages[0];
+      if (!msg.message) return;
+
+      const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || '').trim();
+      const groupJid = msg.key.remoteJid;
+      if (!groupJid || !groupJid.endsWith('@g.us')) return;
+
+      const sender = msg.key.participant || msg.key.remoteJid;
+      const isHAC = text.startsWith('!');
+      const isRPAction = text.startsWith('/') && text.endsWith('/');
+
+      if (!heroes[sender]) {
+        heroes[sender] = { trust: 0, fear: 0, route: 'Civilian', ability: 'None', unlocked: false, quirk: '', missions: 0 };
+      }
+
+      if (isHAC) {
+        const args = text.slice(1).trim().split(/\s+/);
+        const cmd = args[0].toLowerCase();
+        let reply = '';
+
+        if (cmd === 'help') {
+          reply = `🔵 *H.A.C. SYSTEM ONLINE*\n\nCommands:\n!register\n!profile @user\n!trust @user +50\n!chooseability @user "power with limiters"\n!battle @user1 @user2\n!raid\n!top10\n!challenge @user`;
+        } else if (cmd === 'register') {
+          heroes[sender].route = 'Aspiring Hero';
+          reply = `🟢 *New Hero Registered*\nTrust: 0\nUse !chooseability "your power with limiters"`;
+        } else if (cmd === 'profile' && args[1]) {
+          const target = args[1].replace('@','') + '@s.whatsapp.net';
+          const h = heroes[target] || { trust: 0, fear: 0, ability: 'None' };
+          reply = `🔵 *Wrist Display*\nHero: ${args[1]}\nTrust: ${h.trust} | Rank: ${getRank(h.trust)}`;
+        } else if (cmd === 'trust' && args[1]) {
+          const target = args[1].replace('@','') + '@s.whatsapp.net';
+          const amount = parseInt(args[2]) || 20;
+          if (!heroes[target]) heroes[target] = { trust: 0, fear: 0, route: 'Civilian', ability: 'None', unlocked: false, quirk: '' };
+          heroes[target].trust += amount;
+          reply = `🟢 +${amount} Trust to ${args[1]}. Current: ${heroes[target].trust}`;
+          saveHeroes();
+        } else if (cmd === 'battle' && args[1]) {
+          activeBattles[groupJid] = { players: [sender, args[1].replace('@','') + '@s.whatsapp.net'] };
+          reply = `🌌 *Battle Started*\nUse /your action here/ only`;
+        } else if (cmd === 'raid') {
+          reply = `🌌 *System Raid Alert*\nThreat detected! Respond with /your action/`;
+        }
+
+        if (reply) {
+          await XeonBotInc.sendMessage(groupJid, { text: reply });
+        }
+      } 
+      else if (isRPAction && activeBattles[groupJid]) {
+        const battle = activeBattles[groupJid];
+        if (battle.players.includes(sender)) {
+          const action = text.slice(1, -1).trim();
+          await XeonBotInc.sendMessage(groupJid, { text: `🌌 *System:* ${sender.split('@')[0]} ${action}\n\nNext move?` });
+        }
+      }
+
+      saveHeroes();
+    });
+
+    // Rest of original code (connection, pairing, etc.)
     XeonBotInc.decodeJid = (jid) => {
         if (!jid) return jid
         if (/:\d+@/gi.test(jid)) {
@@ -222,13 +297,11 @@ async function startXeonBotInc() {
             phoneNumber = await question(chalk.bgBlack(chalk.greenBright(`Please type your WhatsApp number 😍\nFormat: 6281376552730 (without + or spaces) : `)))
         }
 
-        // Clean the phone number - remove any non-digit characters
         phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
 
-        // Validate the phone number using awesome-phonenumber
         const pn = require('awesome-phonenumber');
         if (!pn('+' + phoneNumber).isValid()) {
-            console.log(chalk.red('Invalid phone number. Please enter your full international number (e.g., 15551234567 for US, 447911123456 for UK, etc.) without + or spaces.'));
+            console.log(chalk.red('Invalid phone number. Please enter your full international number.'));
             process.exit(1);
         }
 
@@ -237,10 +310,9 @@ async function startXeonBotInc() {
                 let code = await XeonBotInc.requestPairingCode(phoneNumber)
                 code = code?.match(/.{1,4}/g)?.join("-") || code
                 console.log(chalk.black(chalk.bgGreen(`Your Pairing Code : `)), chalk.black(chalk.white(code)))
-                console.log(chalk.yellow(`\nPlease enter this code in your WhatsApp app:\n1. Open WhatsApp\n2. Go to Settings > Linked Devices\n3. Tap "Link a Device"\n4. Enter the code shown above`))
+                console.log(chalk.yellow(`\nPlease enter this code in your WhatsApp app.`))
             } catch (error) {
                 console.error('Error requesting pairing code:', error)
-                console.log(chalk.red('Failed to get pairing code. Please check your phone number and try again.'))
             }
         }, 3000)
     }
@@ -258,54 +330,24 @@ async function startXeonBotInc() {
         }
         
         if (connection == "open") {
-            console.log(chalk.magenta(` `))
             console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(XeonBotInc.user, null, 2)))
 
             try {
                 const botNumber = XeonBotInc.user.id.split(':')[0] + '@s.whatsapp.net';
                 await XeonBotInc.sendMessage(botNumber, {
-                    text: `🤖 Bot Connected Successfully!\n\n⏰ Time: ${new Date().toLocaleString()}\n✅ Status: Online and Ready!\n\n✅Make sure to join below channel`,
-                    contextInfo: {
-                        forwardingScore: 1,
-                        isForwarded: true,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid: '120363161513685998@newsletter',
-                            newsletterName: 'KnightBot MD',
-                            serverMessageId: -1
-                        }
-                    }
-                });
+                    text: `🤖 H.A.C. System Connected Successfully!\n\nTo Be Hero X RP Bot is Online!`,
+                }).catch(console.error);
             } catch (error) {
                 console.error('Error sending connection message:', error.message)
             }
 
             await delay(1999)
-            console.log(chalk.yellow(`\n\n                  ${chalk.bold.blue(`[ ${global.botname || 'KNIGHT BOT'} ]`)}\n\n`))
-            console.log(chalk.cyan(`< ================================================== >`))
-            console.log(chalk.magenta(`\n${global.themeemoji || '•'} YT CHANNEL: MR UNIQUE HACKER`))
-            console.log(chalk.magenta(`${global.themeemoji || '•'} GITHUB: mrunqiuehacker`))
-            console.log(chalk.magenta(`${global.themeemoji || '•'} WA NUMBER: ${owner}`))
-            console.log(chalk.magenta(`${global.themeemoji || '•'} CREDIT: MR UNIQUE HACKER`))
-            console.log(chalk.green(`${global.themeemoji || '•'} 🤖 Bot Connected Successfully! ✅`))
-            console.log(chalk.blue(`Bot Version: ${settings.version}`))
+            console.log(chalk.green(`\n\n                  ${chalk.bold.blue(`[ H.A.C. SYSTEM - To Be Hero X ]`)}\n\n`))
+            console.log(chalk.green(`Bot is ready for your RP group!`))
         }
         
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut
-            const statusCode = lastDisconnect?.error?.output?.statusCode
-            
-            console.log(chalk.red(`Connection closed due to ${lastDisconnect?.error}, reconnecting ${shouldReconnect}`))
-            
-            if (statusCode === DisconnectReason.loggedOut || statusCode === 401) {
-                try {
-                    rmSync('./session', { recursive: true, force: true })
-                    console.log(chalk.yellow('Session folder deleted. Please re-authenticate.'))
-                } catch (error) {
-                    console.error('Error deleting session:', error)
-                }
-                console.log(chalk.red('Session logged out. Please re-authenticate.'))
-            }
-            
             if (shouldReconnect) {
                 console.log(chalk.yellow('Reconnecting...'))
                 await delay(5000)
@@ -313,63 +355,6 @@ async function startXeonBotInc() {
             }
         }
     })
-
-    // Track recently-notified callers to avoid spamming messages
-    const antiCallNotified = new Set();
-
-    // Anticall handler: block callers when enabled
-    XeonBotInc.ev.on('call', async (calls) => {
-        try {
-            const { readState: readAnticallState } = require('./commands/anticall');
-            const state = readAnticallState();
-            if (!state.enabled) return;
-            for (const call of calls) {
-                const callerJid = call.from || call.peerJid || call.chatId;
-                if (!callerJid) continue;
-                try {
-                    // First: attempt to reject the call if supported
-                    try {
-                        if (typeof XeonBotInc.rejectCall === 'function' && call.id) {
-                            await XeonBotInc.rejectCall(call.id, callerJid);
-                        } else if (typeof XeonBotInc.sendCallOfferAck === 'function' && call.id) {
-                            await XeonBotInc.sendCallOfferAck(call.id, callerJid, 'reject');
-                        }
-                    } catch {}
-
-                    // Notify the caller only once within a short window
-                    if (!antiCallNotified.has(callerJid)) {
-                        antiCallNotified.add(callerJid);
-                        setTimeout(() => antiCallNotified.delete(callerJid), 60000);
-                        await XeonBotInc.sendMessage(callerJid, { text: '📵 Anticall is enabled. Your call was rejected and you will be blocked.' });
-                    }
-                } catch {}
-                // Then: block after a short delay to ensure rejection and message are processed
-                setTimeout(async () => {
-                    try { await XeonBotInc.updateBlockStatus(callerJid, 'block'); } catch {}
-                }, 800);
-            }
-        } catch (e) {
-            // ignore
-        }
-    });
-
-    XeonBotInc.ev.on('group-participants.update', async (update) => {
-        await handleGroupParticipantUpdate(XeonBotInc, update);
-    });
-
-    XeonBotInc.ev.on('messages.upsert', async (m) => {
-        if (m.messages[0].key && m.messages[0].key.remoteJid === 'status@broadcast') {
-            await handleStatus(XeonBotInc, m);
-        }
-    });
-
-    XeonBotInc.ev.on('status.update', async (status) => {
-        await handleStatus(XeonBotInc, status);
-    });
-
-    XeonBotInc.ev.on('messages.reaction', async (status) => {
-        await handleStatus(XeonBotInc, status);
-    });
 
     return XeonBotInc
     } catch (error) {
@@ -379,12 +364,12 @@ async function startXeonBotInc() {
     }
 }
 
-
-// Start the bot with error handling
+// Start the bot
 startXeonBotInc().catch(error => {
     console.error('Fatal error:', error)
     process.exit(1)
 })
+
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err)
 })
