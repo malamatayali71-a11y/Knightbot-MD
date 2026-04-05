@@ -1,12 +1,19 @@
 /**
- * H.A.C. System - To Be Hero X WhatsApp Bot
+ * Knight Bot with H.A.C. System (To Be Hero X RP)
  */
 
+require('./settings')
 const fs = require('fs')
-const { default: makeWASocket, useMultiFileAuthState } = require("@whiskeysockets/baileys")
+const chalk = require('chalk')
+const { handleMessages } = require('./main')
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    fetchLatestBaileysVersion
+} = require("@whiskeysockets/baileys")
 const pino = require("pino")
 
-// H.A.C. System Data
+// ====================== H.A.C. SYSTEM (To Be Hero X) ======================
 const DATA_FILE = './data/heroes.json';
 let heroes = {};
 let activeBattles = {};
@@ -37,9 +44,11 @@ function saveHeroes() {
 }
 
 async function startBot() {
+  const { version } = await fetchLatestBaileysVersion();
   const { state, saveCreds } = await useMultiFileAuthState('./session');
 
   const sock = makeWASocket({
+    version,
     logger: pino({ level: 'silent' }),
     printQRInTerminal: false,
     auth: state,
@@ -48,7 +57,16 @@ async function startBot() {
 
   sock.ev.on('creds.update', saveCreds);
 
-  // H.A.C. Handler
+  // Original KnightBot moderation (keeps .tagall, .kick, etc.)
+  sock.ev.on('messages.upsert', async (chatUpdate) => {
+    try {
+      await handleMessages(sock, chatUpdate, true);
+    } catch (err) {
+      console.error("Error in handleMessages:", err);
+    }
+  });
+
+  // H.A.C. System (your vision)
   sock.ev.on('messages.upsert', async (chatUpdate) => {
     const msg = chatUpdate.messages[0];
     if (!msg.message) return;
@@ -109,8 +127,7 @@ async function startBot() {
   });
 
   sock.ev.on('connection.update', (update) => {
-    const { connection } = update;
-    if (connection === 'open') {
+    if (update.connection === 'open') {
       console.log('✅ H.A.C. System is Online!');
     }
   });
